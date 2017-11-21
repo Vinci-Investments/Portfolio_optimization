@@ -3,6 +3,7 @@ import pandas_datareader.data as web;
 import numpy as np;
 import matplotlib.pyplot as plt;
 
+
 # List of stocks composing the portfolio
 stocks = ['AAPL', 'FB', 'GOOG', 'MSFT', 'NVDA']
 
@@ -35,19 +36,30 @@ def max_drawdown(portfolio_data_frame, weights, time_period):
 
 
 # Parameter for the Monte-Carlo simulation
-nbr_iteration = 4000
+nbr_iteration = 40000
 simulated_portfolios = np.zeros((4, nbr_iteration)) # mean, std, Sharpe ratio and max drawdown
 simulated_weights = []
 risk_free_rate = 0.01 # Livret A
 nbr_trading_days = 252
 time_period_drawdown = 20
-    
+resolution = 4
+lower_bound = 10**(-resolution)
+upper_bound = 0.4
+np.random.seed()  
 
 for index in range(nbr_iteration):
-    
+
     # Randomly creating the array of weight and then normalizing such that the sum equals 1
-    weights = np.random.rand(1, len(stocks))[0]
-    weights = weights/np.sum(weights)
+    #
+    invalid_weights = True
+    while(invalid_weights):
+        weights = (upper_bound-lower_bound)*np.random.rand(1, len(stocks))[0] + lower_bound
+        weights = weights/sum(weights)
+        for i in range(len(stocks)-1):
+            weights[i] = np.round(weights[i], resolution)
+        weights[len(stocks)-1] = 1.0 - np.sum(weights[0:len(stocks)-2])
+        if((weights > lower_bound).all() and (weights < upper_bound).all()):
+            invalid_weights = False
     simulated_weights.append(weights)
     
     # Computing the return and volatility of the portfolio with those weights
@@ -68,9 +80,9 @@ figure, axarr = plt.subplots(1,2)
 # Diplaying results of the simulation
 simulated_portfolios_df = pd.DataFrame(simulated_portfolios.T,columns=['retrn','stdv','sharpe', 'max_drdwn'])
 scat = axarr[0].scatter(simulated_portfolios_df.stdv,simulated_portfolios_df.retrn
-            ,c=simulated_portfolios_df.sharpe,cmap='RdYlBu')
+            ,c=simulated_portfolios_df.sharpe,cmap='RdYlBu', label='_nolegend_')
 figure.colorbar(scat, ax = axarr[0])
-axarr[0].set_title("Simulated portfolios")
+axarr[0].set_title("Portefeuilles simulés")
 
 
 # Finding the maximum Sharpe ratio, minimum volatility and minimum drawdown
@@ -86,9 +98,10 @@ lowest_drawdown_weights = simulated_weights[lowest_drawdown_position]
 
 
 # Plotting the three optimal points on the efficient curve
-axarr[0].scatter(highest_sharpe[1],highest_sharpe[0],marker=(4,0,0),color='b',s=400)
-axarr[0].scatter(lowest_volatility[1],lowest_volatility[0],marker=(4,0,0),color='g',s=400)
-axarr[0].scatter(lowest_drawdown[1],lowest_drawdown[0],marker=(4,0,0),color='r',s=400)
+axarr[0].scatter(highest_sharpe[1],highest_sharpe[0],marker=(4,0,0),color='b',s=400, label="Sharpe")
+axarr[0].scatter(lowest_volatility[1],lowest_volatility[0],marker=(4,0,0),color='g',s=400, label="Volatilité")
+axarr[0].scatter(lowest_drawdown[1],lowest_drawdown[0],marker=(4,0,0),color='r',s=400, label="Maximum drawdown")
+axarr[0].legend()
 
 
 # Computing the optimized portfolios returns
@@ -103,7 +116,6 @@ for i in range(1, len(stocks)):
     data_volatility_weighted += lowest_volatility_weights[i]*data.ix[:,i]
     data_drawdown_weighted += lowest_drawdown_weights[i]*data.ix[:,i]
 
-
 # Normalizing
 data_sharpe_weighted = data_sharpe_weighted/data_sharpe_weighted[0]
 data_equally_weighted = data_equally_weighted/data_equally_weighted[0]
@@ -112,18 +124,10 @@ data_drawdown_weighted = data_drawdown_weighted/data_drawdown_weighted[0]
 
 
 # Plotting the optimized portfolios returns
-axarr[1].plot(data_sharpe_weighted, label="Sharpe optimization")
-axarr[1].plot(data_equally_weighted, label="Equally weighted")
-axarr[1].plot(data_volatility_weighted, label="Volatility optimization")
-axarr[1].plot(data_drawdown_weighted, label="Drawdown optimization")
+axarr[1].plot(data_sharpe_weighted, label="Optimisation via Sharpe")
+axarr[1].plot(data_equally_weighted, label="Uniformément pondéré")
+axarr[1].plot(data_volatility_weighted, label="Optimisation de la volatilité")
+axarr[1].plot(data_drawdown_weighted, label="Optimisation du max drawdown")
 axarr[1].legend()
-axarr[1].set_title("Returns comparaison")
+axarr[1].set_title("Comparaison des retours")
 plt.show()
-    
-    
-
-
-
-
-
-
